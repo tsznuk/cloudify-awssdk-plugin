@@ -1,0 +1,199 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/4.0/types.yaml
+  - http://www.getcloudify.org/spec/aws-plugin/1.4.10/plugin.yaml
+  - ../../plugin.yaml
+
+inputs:
+
+  aws_access_key_id:
+    type: string
+
+  aws_secret_access_key:
+    type: string
+
+  aws_region_name:
+    type: string
+    default: us-west-1
+
+  use_external_resource:
+    type: boolean
+    default: false
+
+  networkacl:
+    type: string
+    default: ''
+
+  dhcpoptions:
+    type: string
+    default: ''
+
+  vpngateway:
+    type: string
+    default: ''
+
+  customergateway:
+    type: string
+    default: ''
+
+  igw:
+    type: string
+    default: ''
+
+  routetable:
+    type: string
+    default: ''
+
+  subnet:
+    type: string
+    default: ''
+
+  vpc:
+    type: string
+    default: ''
+
+dsl_definitions:
+
+  client_config: &client_config
+    aws_access_key_id: { get_input: aws_access_key_id }
+    aws_secret_access_key: { get_input: aws_secret_access_key }
+    region_name: { get_input: aws_region_name }
+
+node_types:
+
+  cloudify.nodes.Inputs:
+    derived_from: cloudify.nodes.Root
+    properties:
+      use_external_resource:
+        default: false
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: create.py
+          executor: central_deployment_agent
+        delete:
+          implementation: delete.py
+          executor: central_deployment_agent
+
+node_templates:
+
+  networkacl:
+    type: cloudify.nodes.aws.ec2.NetworkACL
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: networkacl }
+      client_config: *client_config
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vpc
+      - type: cloudify.relationships.connected_to
+        target: subnet
+
+  dhcpoptions:
+    type: cloudify.nodes.aws.ec2.DHCPOptions
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: dhcpoptions }
+      resource_config:
+        kwargs:
+          DhcpConfigurations:
+            - Key: domain-name
+              Values:
+                - example.com
+      client_config: *client_config
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: vpc
+
+  vpngateway:
+    type: cloudify.nodes.aws.ec2.VPNGateway
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: vpngateway }
+      resource_config:
+        kwargs:
+          Type: 'ipsec.1'
+      client_config: *client_config
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: vpc
+
+  customergateway:
+    type: cloudify.nodes.aws.ec2.CustomerGateway
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: customergateway }
+      resource_config:
+        kwargs:
+          Type: 'ipsec.1'
+          PublicIp: '34.224.150.134'
+          BgpAsn: 65000
+      client_config: *client_config
+
+  igw:
+    type: cloudify.nodes.aws.ec2.InternetGateway
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: igw }
+      client_config: *client_config
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: vpc
+
+  routetable:
+    type: cloudify.nodes.aws.ec2.RouteTable
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: routetable }
+      client_config: *client_config
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vpc
+      - type: cloudify.relationships.connected_to
+        target: subnet
+
+  subnet:
+    type: cloudify.nodes.aws.ec2.Subnet
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: subnet }
+      resource_config:
+        kwargs:
+          CidrBlock: '10.0.0.0/24'
+      client_config: *client_config
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: vpc
+
+  vpc:
+    type: cloudify.nodes.aws.ec2.Vpc
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+      resource_id: { get_input: vpc }
+      resource_config:
+        kwargs:
+          CidrBlock: '10.0.0.0/16'
+      client_config: *client_config
+
+  inputstring:
+    type: cloudify.nodes.Inputs
+    properties:
+      use_external_resource: { get_input: use_external_resource }
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: vpc
+      - type: cloudify.relationships.depends_on
+        target: subnet
+      - type: cloudify.relationships.depends_on
+        target: igw
+      - type: cloudify.relationships.depends_on
+        target: customergateway
+      - type: cloudify.relationships.depends_on
+        target: vpngateway
+      - type: cloudify.relationships.depends_on
+        target: dhcpoptions
+      - type: cloudify.relationships.depends_on
+        target: routetable
+      - type: cloudify.relationships.depends_on
+        target: networkacl
