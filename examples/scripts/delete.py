@@ -11,6 +11,7 @@ if __name__ == '__main__':
 
     resources = ctx.instance.runtime_properties.get('existing_resource_string',
                                                     '')
-    ctx.logger.debug('Deleting existing resource string: {0}'.format(resources))
+    ctx.logger.debug('Deleting existing resource string: {0}'
+                     .format(resources))
     delete()
     ctx.logger.debug('Existing resource string was successfully deleted')
