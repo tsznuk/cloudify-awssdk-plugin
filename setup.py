@@ -28,6 +28,8 @@ setup(
         'cloudify_boto3.autoscaling.resources',
         'cloudify_boto3.cloudwatch',
         'cloudify_boto3.cloudwatch.resources',
+        'cloudify_boto3.cloudwatchlogs',
+        'cloudify_boto3.cloudwatchlogs.resources',
         'cloudify_boto3.cloudformation',
         'cloudify_boto3.cloudformation.resources',
         'cloudify_boto3.dynamodb',
